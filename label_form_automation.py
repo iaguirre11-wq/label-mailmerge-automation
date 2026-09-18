@@ -1,3 +1,4 @@
+import openpyxl
 from tkinter import *
 from tkinter import ttk
 
@@ -18,41 +19,42 @@ def submit_info():
     print("Device Model:", selected_model)
 
 
+# --------User GUI--------------------
 root = Tk()
 root.title("Student Information Form")
 
 mainframe = ttk.Frame(root, padding=(3, 3, 12, 12))
 mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
 
+# Section for New Device Serial Number:
+serial_number = StringVar()
+serial_entry = ttk.Entry(mainframe, width=20, textvariable=serial_number)
+serial_entry.grid(column=2, row=1, sticky=(W, E))
+
+ttk.Label(mainframe, text="Device Serial Number:").grid(
+    column=1, row=1, sticky=W)
+
 # Section for entering student name:
 name = StringVar()
 name_entry = ttk.Entry(mainframe, width=20, textvariable=name)
-name_entry.grid(column=2, row=1, sticky=(W, E))
+name_entry.grid(column=2, row=2, sticky=(W, E))
 
-ttk.Label(mainframe, text="Student Name:").grid(column=1, row=1, sticky=W)
+ttk.Label(mainframe, text="Student Name:").grid(column=1, row=2, sticky=W)
 
 # Section for entering year of graduation:
 YOG = StringVar()
 YOG_entry = ttk.Entry(mainframe, width=20, textvariable=YOG)
-YOG_entry.grid(column=2, row=2, sticky=(W, E))
+YOG_entry.grid(column=2, row=3, sticky=(W, E))
 
 ttk.Label(mainframe, text="Year of Graduation:").grid(
-    column=1, row=2, sticky=W)
+    column=1, row=3, sticky=W)
 
 # Section for entering grade:
 grade = StringVar()
 grade_entry = ttk.Entry(mainframe, width=20, textvariable=grade)
-grade_entry.grid(column=2, row=3, sticky=(W, E))
+grade_entry.grid(column=2, row=4, sticky=(W, E))
 
-ttk.Label(mainframe, text="Grade:").grid(column=1, row=3, sticky=W)
-
-# Section for New Device Serial Number:
-serial_number = StringVar()
-serial_entry = ttk.Entry(mainframe, width=20, textvariable=serial_number)
-serial_entry.grid(column=2, row=4, sticky=(W, E))
-
-ttk.Label(mainframe, text="Device Serial Number:").grid(
-    column=1, row=4, sticky=W)
+ttk.Label(mainframe, text="Grade:").grid(column=1, row=4, sticky=W)
 
 # Section for entering School
 school_list = ["School A", "School B", "School C"]
@@ -77,3 +79,6 @@ submit_button.grid(column=2, row=7, sticky=W)
 
 
 root.mainloop()
+# -------------------------------------------------------------------------
+
+openpyxl.load_workbook("C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Databases\Test1.xls")
