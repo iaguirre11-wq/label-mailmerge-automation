@@ -7,8 +7,8 @@ def submit_info():
     year_of_graduation = YOG.get()
     student_grade = grade.get()
     device_serial_number = serial_number.get()
-    selected_school = combo.get()
-    selected_model = combo.get()
+    selected_school = combo_school.get()
+    selected_model = combo_device.get()
 
     print("Student Name:", student_name)
     print("Year of Graduation:", year_of_graduation)
@@ -57,18 +57,18 @@ ttk.Label(mainframe, text="Device Serial Number:").grid(
 # Section for entering School
 school_list = ["School A", "School B", "School C"]
 
-combo = ttk.Combobox(mainframe, values=school_list, state="readonly")
-combo.set("Select School")
-combo.grid(column=2, row=5, sticky=(W, E))
+combo_school = ttk.Combobox(mainframe, values=school_list, state="readonly")
+combo_school.set("Select School")
+combo_school.grid(column=2, row=5, sticky=(W, E))
 
 ttk.Label(mainframe, text="School:").grid(column=1, row=5, sticky=W)
 
 # Section for Device Model
 model_list = ["Model X", "Model Y", "Model Z"]
 
-combo = ttk.Combobox(mainframe, values=model_list, state="readonly")
-combo.set("Select Model")
-combo.grid(column=2, row=6, sticky=(W, E))
+combo_device = ttk.Combobox(mainframe, values=model_list, state="readonly")
+combo_device.set("Select Model")
+combo_device.grid(column=2, row=6, sticky=(W, E))
 
 ttk.Label(mainframe, text="Device Model:").grid(column=1, row=6, sticky=W)
 
