@@ -4,6 +4,7 @@ from tkinter import ttk
 
 
 def submit_info():
+
     student_name = name.get()
     year_of_graduation = YOG.get()
     student_grade = grade.get()
@@ -11,12 +12,20 @@ def submit_info():
     selected_school = combo_school.get()
     selected_model = combo_device.get()
 
-    print("Student Name:", student_name)
-    print("Year of Graduation:", year_of_graduation)
-    print("Grade:", student_grade)
-    print("Device Serial Number:", device_serial_number)
-    print("School:", selected_school)
-    print("Device Model:", selected_model)
+    workbook = openpyxl.load_workbook(
+        r'C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Databases\Test1.xlsx')
+    worksheet = workbook.active
+    last_row = worksheet.max_row + 1
+
+    worksheet.cell(row=last_row, column=1, value=device_serial_number)
+    worksheet.cell(row=last_row, column=2, value=student_name)
+    worksheet.cell(row=last_row, column=3, value=year_of_graduation)
+    worksheet.cell(row=last_row, column=4, value=student_grade)
+    worksheet.cell(row=last_row, column=5, value=selected_school)
+    worksheet.cell(row=last_row, column=6, value=selected_model)
+
+    workbook.save(
+        r'C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Databases\Test1.xlsx')
 
 
 # --------User GUI--------------------
@@ -80,5 +89,3 @@ submit_button.grid(column=2, row=7, sticky=W)
 
 root.mainloop()
 # -------------------------------------------------------------------------
-
-openpyxl.load_workbook("C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Databases\Test1.xls")
