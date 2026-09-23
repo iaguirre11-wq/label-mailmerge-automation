@@ -1,63 +1,52 @@
 import win32com.client
 
-template_path = r"C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Labels\Student Chromebook Label.lbx"
-preview_path = r"C:\Users\AguirreIan\Documents\Suffern Odd projects\Label Automation\test_output.bmp"
+template_path = r"C:\Users\AguirreIan\Documents\Suffern Odd projects\Label Automation\2026-2027_Student Device Agreement.docx"   # your prepped copy
+pdf_preview = r"C:\Users\AguirreIan\Documents\Suffern Odd projects\Label Automation\form_preview.pdf"
 
+SCHOOL_CODES = {
+    "Suffern High School": "SHS",
+    "Montebello Elementary": "MES",
+    # fill in the rest
+}
 
-# Fake test values — stand-ins for your six form fields
-student_name = "Test Student that is very long"
-school = "Montebello Elementary"
-yog = "2036"
-serial_number = "PF6C49RA"
+record = {
+    "device_serial_number": "PF6C49RA",
+    "student_name": "Test Student",
+    "student_grade": "5",
+    "selected_school": "Montebello Elementary",
+    "selected_model": "Test Model",
+}
 
-doc = win32com.client.Dispatch("bpac.Document")
+values = {
+    "User": record["student_name"],
+    "Grade": record["student_grade"],
+    "Device": record["selected_model"],
+    "Serial": record["device_serial_number"],
+    "SchoolCode": SCHOOL_CODES.get(record["selected_school"], ""),
+}
 
-if not doc.Open(template_path):
-    print("Failed to open template.")
-    raise SystemExit
+word = win32com.client.DispatchEx("Word.Application")   # separate hidden Word
+word.Visible = False
+word.DisplayAlerts = 0
 
+doc = word.Documents.Open(template_path, ReadOnly=True, AddToRecentFiles=False)
 try:
+    for story in doc.StoryRanges:              # body, headers, footers...
+        while story is not None:
+            for i in range(story.Fields.Count, 0, -1):   # reverse: Unlink removes fields
+                field = story.Fields(i)
+                parts = field.Code.Text.split()
+                if len(parts) >= 2 and parts[0] == "MERGEFIELD" and parts[1] in values:
+                    field.Result.Text = values[parts[1]]
+                    field.Unlink()             # turn it into plain text
+            story = story.NextStoryRange
 
-    doc.GetObject("Name").Text = student_name
-    doc.GetObject("School").Text = school
-    doc.GetObject("YOG").Text = yog
-    doc.GetObject("Bar Code").Text = serial_number
-    doc.GetObject("QR Code").Text = serial_number
+    # 17 = PDF, check this before printing
+    doc.SaveAs2(pdf_preview, FileFormat=17)
+    print("Preview saved:", pdf_preview)
 
- # --- NEW: choose printer instead of using the one saved in the .lbx ---
-    print("Template's saved printer:", doc.Printer.Name)
-
-    installed = doc.Printer.GetInstalledPrinters
-    brother = [p for p in installed if doc.Printer.IsPrinterSupported(p)]
-
-    for i, p in enumerate(brother):
-        print(i, p)
-
-    choice = int(input("Pick printer number: "))
-    print("SetPrinter:", doc.SetPrinter(brother[choice], False))
-
-    # Which printer will b-PAC send to? (the one saved in the .lbx)
-    printer_name = doc.Printer.Name
-    print("Target printer:", printer_name)
-    print("Online:", doc.Printer.IsPrinterOnline(printer_name))
-
-    # Preview first, same as before
-    print("Preview export:", doc.Export(4, preview_path, 180))
-
-    if input("Print one real label? (y/n): ").strip().lower() == "y":
-        started = doc.StartPrint("", 0)
-        print("StartPrint:", started)
-
-        if started:
-            printed = doc.PrintOut(1, 0)
-            print("PrintOut:", printed)
-            ended = doc.EndPrint          # no parentheses
-            print("EndPrint:", ended)
-
-        if not started or not printed:
-            print("Error code:", doc.ErrorCode)
-    else:
-        print("Skipped printing.")
-
+    if input("Print the form? (y/n): ").strip().lower() == "y":
+        doc.PrintOut()
 finally:
-    doc.Close
+    doc.Close(SaveChanges=0)                   # never saves the template
+    word.Quit()

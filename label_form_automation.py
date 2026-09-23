@@ -1,42 +1,67 @@
 import openpyxl
 import win32com.client
+import win32print
 from tkinter import *
 from tkinter import ttk
 
+# b-PAC is used with late binding (win32com.client.Dispatch).
+# gencache.EnsureDispatch does NOT work with b-PAC (makepy error), so:
+#   - Methods that take NO arguments are invoked automatically when accessed,
+#     so they are written WITHOUT parentheses (doc.Close, doc.EndPrint,
+#     doc.Printer.GetInstalledPrinters).
+#     Adding () causes "TypeError: 'bool'/'tuple' object is not callable".
+#   - Methods WITH arguments keep their parentheses (doc.Open(path), doc.PrintOut(1, 0)).
+#   - Properties never use parentheses (doc.Printer.Name).
+
+# temp hardcoded values
 excel_database = r'C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Databases\Test1.xlsx'
 label_template = r"C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Labels\Student Chromebook Label.lbx"
+form_template = r"C:\Users\AguirreIan\Documents\Suffern Odd projects\Label Automation\2026-2027_Student Device Agreement.docx"
+SCHOOL_CODES = {
+    "Suffern High School": "SHS",
+    "Montebello Elementary": "MES",
+    "Cherry Lane Elementary": "CES",
+    "Suffern Middle School": "SMS",
+    "RP Connor Elementary": "RES",
+    "Sloatsburg Elementary": "SES"
+}
+
 
 def write_to_excel(record):
     workbook = openpyxl.load_workbook(excel_database)
-
     worksheet = workbook.active
-    last_row = worksheet.max_row + 1
 
-    worksheet.cell(row=last_row, column=1,
-                   value=record["device_serial_number"])
-    worksheet.cell(row=last_row, column=2, value=record["student_name"])
-    worksheet.cell(row=last_row, column=3, value=record["year_of_graduation"])
-    worksheet.cell(row=last_row, column=4, value=record["student_grade"])
-    worksheet.cell(row=last_row, column=5, value=record["selected_school"])
-    worksheet.cell(row=last_row, column=6, value=record["selected_model"])
+# Append a new row to the Excel worksheet with the record data in the same order as listed below starting from column A
+    worksheet.append([
+        record["device_serial_number"],
+        record["student_name"],
+        record["year_of_graduation"],
+        record["student_grade"],
+        record["selected_school"],
+        record["selected_model"]
+    ])
 
     workbook.save(excel_database)
 
 
 def get_brother_printers():
     doc = win32com.client.Dispatch("bpac.Document")
-    installed = doc.Printer.GetInstalledPrinters
+    installed = doc.Printer.GetInstalledPrinters  # no ()
     return [p for p in installed if doc.Printer.IsPrinterSupported(p)]
 
 
-def print_label(record, printer_name):
-    template_path = label_template
+def get_form_printers(brother_printers):
+    flags = win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
+    all_printers = [p[2] for p in win32print.EnumPrinters(flags)]
+    brother = set(brother_printers)
+    return [p for p in all_printers if p not in brother]
 
+
+def print_label(record, printer_name):
     doc = win32com.client.Dispatch("bpac.Document")
 
-    if not doc.Open(template_path):
-        print("Failed to open template:")
-        return
+    if not doc.Open(label_template):
+        raise RuntimeError(f"Could not open label template: {label_template}")
 
     try:
 
@@ -50,10 +75,54 @@ def print_label(record, printer_name):
 
         doc.StartPrint("", 0)
         doc.PrintOut(1, 0)
-        doc.EndPrint
+        doc.EndPrint  # no ()
 
     finally:
-        doc.Close
+        doc.Close  # no ()
+
+
+def print_form(record, printer_name):
+
+    field_values = {
+        "User": record["student_name"],
+        "Grade": record["student_grade"],
+        "Device": record["selected_model"],
+        "Serial": record["device_serial_number"],
+        "SchoolCode": SCHOOL_CODES.get(record["selected_school"], ""),
+    }
+
+    word = None
+    doc = None
+    original_printer = None
+
+    try:
+        word = win32com.client.DispatchEx("Word.Application")
+        word.Visible = False
+        word.DisplayAlerts = 0
+
+        original_printer = word.ActivePrinter
+        word.ActivePrinter = printer_name
+        doc = word.Documents.Open(form_template, ReadOnly=True)
+
+        for story in doc.StoryRanges:
+            while story is not None:
+                for i in range(story.Fields.Count, 0, -1):
+                    field = story.Fields(i)
+                    parts = field.Code.Text.split()
+                    if len(parts) >= 2 and parts[0] == "MERGEFIELD" and parts[1] in field_values:
+                        field.Result.Text = field_values[parts[1]]
+                        field.Unlink()
+                story = story.NextStoryRange
+
+        doc.PrintOut(Background=False)
+
+    finally:
+        if doc is not None:
+            doc.Close(SaveChanges=0)
+        if word is not None:
+            if original_printer:
+                word.ActivePrinter = original_printer
+            word.Quit()
 
 
 def submit_info():
@@ -69,7 +138,8 @@ def submit_info():
 
     write_to_excel(record)
 
-    print_label(record, combo_printer.get())
+    # print_label(record, combo_printer.get())
+    print_form(record, combo_regular_printer.get())
 
 
 # --------User GUI--------------------
@@ -110,7 +180,7 @@ grade_entry.grid(column=2, row=4, sticky=(W, E))
 ttk.Label(mainframe, text="Grade:").grid(column=1, row=4, sticky=W)
 
 # Section for entering School
-school_list = ["School A", "School B", "School C"]
+school_list = list(SCHOOL_CODES)
 
 combo_school = ttk.Combobox(mainframe, values=school_list, state="readonly")
 combo_school.set("Select School")
@@ -127,7 +197,7 @@ combo_device.grid(column=2, row=6, sticky=(W, E))
 
 ttk.Label(mainframe, text="Device Model:").grid(column=1, row=6, sticky=W)
 
-# Section for Selecting Printer
+# Section for Selecting Brother Printer
 printer_list = get_brother_printers()
 
 combo_printer = ttk.Combobox(mainframe, values=printer_list, state="readonly")
@@ -139,11 +209,29 @@ else:
 
 combo_printer.grid(column=2, row=7, sticky=(W, E))
 
-ttk.Label(mainframe, text="Printer:").grid(column=1, row=7, sticky=W)
+ttk.Label(mainframe, text="Label Printer:").grid(column=1, row=7, sticky=W)
+
+# Section for Selecting Regular Printer
+regular_printer_list = get_form_printers(printer_list)
+
+combo_regular_printer = ttk.Combobox(
+    mainframe, values=regular_printer_list, state="readonly")
+
+default_printer = win32print.GetDefaultPrinter()
+
+if default_printer in regular_printer_list:
+    combo_regular_printer.set(default_printer)
+elif regular_printer_list:
+    combo_regular_printer.set(regular_printer_list[0])
+else:
+    combo_regular_printer.set("No Printers Available")
+
+combo_regular_printer.grid(column=2, row=8, sticky=(W, E))
+ttk.Label(mainframe, text="Form Printer:").grid(column=1, row=8, sticky=W)
 
 # Section for Submit Button
 submit_button = ttk.Button(mainframe, text="Submit", command=submit_info)
-submit_button.grid(column=2, row=8, sticky=W)
+submit_button.grid(column=2, row=9, sticky=W)
 
 root.mainloop()
 # -------------------------------------------------------------------------
