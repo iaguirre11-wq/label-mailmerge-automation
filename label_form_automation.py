@@ -1,6 +1,9 @@
 import openpyxl
 import win32com.client
 import win32print
+import sys
+import tomllib
+from pathlib import Path
 from tkinter import *
 from tkinter import ttk
 
@@ -13,18 +16,21 @@ from tkinter import ttk
 #   - Methods WITH arguments keep their parentheses (doc.Open(path), doc.PrintOut(1, 0)).
 #   - Properties never use parentheses (doc.Printer.Name).
 
+if getattr(sys, "frozen", False):
+    base_dir = Path(sys.executable).parent
+else:
+    base_dir = Path(__file__).parent
+
+config_path = base_dir / "config.toml"
+with open(config_path, "rb") as f:
+    config = tomllib.load(f)
+
 # temp hardcoded values
-excel_database = r'C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Databases\Test1.xlsx'
-label_template = r"C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Labels\Student Chromebook Label.lbx"
-form_template = r"C:\Users\AguirreIan\Documents\Suffern Odd projects\Label Automation\2026-2027_Student Device Agreement.docx"
-SCHOOL_CODES = {
-    "Suffern High School": "SHS",
-    "Montebello Elementary": "MES",
-    "Cherry Lane Elementary": "CES",
-    "Suffern Middle School": "SMS",
-    "RP Connor Elementary": "RES",
-    "Sloatsburg Elementary": "SES"
-}
+excel_database = config["paths"]["excel_database"]
+label_template = config["paths"]["label_template"]
+form_template = config["paths"]["form_template"]
+school_codes = config["schools"]
+device_models = config["devices"]["models"]
 
 
 def write_to_excel(record):
@@ -88,7 +94,7 @@ def print_form(record, printer_name):
         "Grade": record["student_grade"],
         "Device": record["selected_model"],
         "Serial": record["device_serial_number"],
-        "SchoolCode": SCHOOL_CODES.get(record["selected_school"], ""),
+        "SchoolCode": school_codes.get(record["selected_school"], ""),
     }
 
     word = None
@@ -180,7 +186,7 @@ grade_entry.grid(column=2, row=4, sticky=(W, E))
 ttk.Label(mainframe, text="Grade:").grid(column=1, row=4, sticky=W)
 
 # Section for entering School
-school_list = list(SCHOOL_CODES)
+school_list = list(school_codes)
 
 combo_school = ttk.Combobox(mainframe, values=school_list, state="readonly")
 combo_school.set("Select School")
@@ -189,7 +195,7 @@ combo_school.grid(column=2, row=5, sticky=(W, E))
 ttk.Label(mainframe, text="School:").grid(column=1, row=5, sticky=W)
 
 # Section for Device Model
-model_list = ["Model X", "Model Y", "Model Z"]
+model_list = list(device_models)
 
 combo_device = ttk.Combobox(mainframe, values=model_list, state="readonly")
 combo_device.set("Select Model")

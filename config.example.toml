@@ -1,0 +1,12 @@
+[paths]
+excel_database = 'C:\path\to\database'
+label_template = 'C:\path\to\brother label template'
+form_template  = 'C:\path\to\device form template'
+
+[schools]
+"School A"    = "SA"
+"School B"    = "SB"
+
+[devices]
+models = ["Lenovo Chromebook 500e Gen 4", "Lenovo Chromebook 500e 2-in-1 Gen 5"]
+
