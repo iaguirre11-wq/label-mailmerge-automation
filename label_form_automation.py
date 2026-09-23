@@ -3,10 +3,11 @@ import win32com.client
 from tkinter import *
 from tkinter import ttk
 
+excel_database = r'C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Databases\Test1.xlsx'
+label_template = r"C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Labels\Student Chromebook Label.lbx"
 
 def write_to_excel(record):
-    workbook = openpyxl.load_workbook(
-        r'C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Databases\Test1.xlsx')
+    workbook = openpyxl.load_workbook(excel_database)
 
     worksheet = workbook.active
     last_row = worksheet.max_row + 1
@@ -19,8 +20,40 @@ def write_to_excel(record):
     worksheet.cell(row=last_row, column=5, value=record["selected_school"])
     worksheet.cell(row=last_row, column=6, value=record["selected_model"])
 
-    workbook.save(
-        r'C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Databases\Test1.xlsx')
+    workbook.save(excel_database)
+
+
+def get_brother_printers():
+    doc = win32com.client.Dispatch("bpac.Document")
+    installed = doc.Printer.GetInstalledPrinters
+    return [p for p in installed if doc.Printer.IsPrinterSupported(p)]
+
+
+def print_label(record, printer_name):
+    template_path = label_template
+
+    doc = win32com.client.Dispatch("bpac.Document")
+
+    if not doc.Open(template_path):
+        print("Failed to open template:")
+        return
+
+    try:
+
+        doc.GetObject("Name").Text = record["student_name"]
+        doc.GetObject("School").Text = record["selected_school"]
+        doc.GetObject("YOG").Text = record["year_of_graduation"]
+        doc.GetObject("Bar Code").Text = record["device_serial_number"]
+        doc.GetObject("QR Code").Text = record["device_serial_number"]
+
+        doc.SetPrinter(printer_name, False)
+
+        doc.StartPrint("", 0)
+        doc.PrintOut(1, 0)
+        doc.EndPrint
+
+    finally:
+        doc.Close
 
 
 def submit_info():
@@ -35,6 +68,8 @@ def submit_info():
     }
 
     write_to_excel(record)
+
+    print_label(record, combo_printer.get())
 
 
 # --------User GUI--------------------
@@ -92,9 +127,23 @@ combo_device.grid(column=2, row=6, sticky=(W, E))
 
 ttk.Label(mainframe, text="Device Model:").grid(column=1, row=6, sticky=W)
 
-submit_button = ttk.Button(mainframe, text="Submit", command=submit_info)
-submit_button.grid(column=2, row=7, sticky=W)
+# Section for Selecting Printer
+printer_list = get_brother_printers()
 
+combo_printer = ttk.Combobox(mainframe, values=printer_list, state="readonly")
+if printer_list:
+    combo_printer.set(printer_list[0])
+
+else:
+    combo_printer.set("No Printers Available")
+
+combo_printer.grid(column=2, row=7, sticky=(W, E))
+
+ttk.Label(mainframe, text="Printer:").grid(column=1, row=7, sticky=W)
+
+# Section for Submit Button
+submit_button = ttk.Button(mainframe, text="Submit", command=submit_info)
+submit_button.grid(column=2, row=8, sticky=W)
 
 root.mainloop()
 # -------------------------------------------------------------------------
