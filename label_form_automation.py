@@ -1,31 +1,40 @@
 import openpyxl
+import win32com.client
 from tkinter import *
 from tkinter import ttk
 
 
-def submit_info():
-
-    student_name = name.get()
-    year_of_graduation = YOG.get()
-    student_grade = grade.get()
-    device_serial_number = serial_number.get()
-    selected_school = combo_school.get()
-    selected_model = combo_device.get()
-
+def write_to_excel(record):
     workbook = openpyxl.load_workbook(
         r'C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Databases\Test1.xlsx')
+
     worksheet = workbook.active
     last_row = worksheet.max_row + 1
 
-    worksheet.cell(row=last_row, column=1, value=device_serial_number)
-    worksheet.cell(row=last_row, column=2, value=student_name)
-    worksheet.cell(row=last_row, column=3, value=year_of_graduation)
-    worksheet.cell(row=last_row, column=4, value=student_grade)
-    worksheet.cell(row=last_row, column=5, value=selected_school)
-    worksheet.cell(row=last_row, column=6, value=selected_model)
+    worksheet.cell(row=last_row, column=1,
+                   value=record["device_serial_number"])
+    worksheet.cell(row=last_row, column=2, value=record["student_name"])
+    worksheet.cell(row=last_row, column=3, value=record["year_of_graduation"])
+    worksheet.cell(row=last_row, column=4, value=record["student_grade"])
+    worksheet.cell(row=last_row, column=5, value=record["selected_school"])
+    worksheet.cell(row=last_row, column=6, value=record["selected_model"])
 
     workbook.save(
         r'C:\Users\AguirreIan\OneDrive - Suffern Central School District\Documents\P-Touch\Databases\Test1.xlsx')
+
+
+def submit_info():
+
+    record = {
+        "device_serial_number": serial_number.get(),
+        "student_name": name.get(),
+        "year_of_graduation": YOG.get(),
+        "student_grade": grade.get(),
+        "selected_school": combo_school.get(),
+        "selected_model": combo_device.get()
+    }
+
+    write_to_excel(record)
 
 
 # --------User GUI--------------------
