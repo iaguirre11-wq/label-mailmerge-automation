@@ -3,6 +3,7 @@ import win32com.client
 import win32print
 import sys
 import tomllib
+import pywintypes
 from pathlib import Path
 from tkinter import *
 from tkinter import ttk
@@ -17,21 +18,45 @@ from tkinter import messagebox
 #   - Methods WITH arguments keep their parentheses (doc.Open(path), doc.PrintOut(1, 0)).
 #   - Properties never use parentheses (doc.Printer.Name).
 
+
+def fatal_startup_error(title, message):
+    temp_root = Tk()
+    temp_root.withdraw()
+    messagebox.showerror(title, message)
+    temp_root.destroy()
+    sys.exit(1)
+
+
 if getattr(sys, "frozen", False):
     base_dir = Path(sys.executable).parent
 else:
     base_dir = Path(__file__).parent
 
 config_path = base_dir / "config.toml"
-with open(config_path, "rb") as f:
-    config = tomllib.load(f)
 
-# Configuration paths and settings loaded from config.toml
-excel_database = config["paths"]["excel_database"]
-label_template = config["paths"]["label_template"]
-form_template = config["paths"]["form_template"]
-school_codes = config["schools"]
-device_models = config["devices"]["models"]
+try:
+    with open(config_path, "rb") as f:
+        config = tomllib.load(f)
+    # Configuration paths and settings loaded from config.toml
+    excel_database = config["paths"]["excel_database"]
+    label_template = config["paths"]["label_template"]
+    form_template = config["paths"]["form_template"]
+    school_codes = config["schools"]
+    device_models = config["devices"]["models"]
+except FileNotFoundError:
+    fatal_startup_error("Config Missing",
+                        f"Couldn't find the config file:\n{config_path}\n\n"
+                        "Copy config.example.toml to config.toml in the same folder and fill in your paths.")
+
+except tomllib.TOMLDecodeError as e:
+    fatal_startup_error("Config Error",
+                        f"config.toml has a formatting error:\n{e}\n\n"
+                        "Tip: Windows paths must be in single quotes.")
+
+except KeyError as e:
+    fatal_startup_error("Config Error",
+                        f"config.toml is missing a setting: {e}\n\n"
+                        "Compare it against config.example.toml.")
 
 # Placeholders for combobox selection
 no_printer_placeholder = "No Printers Available"
@@ -58,7 +83,7 @@ def write_to_excel(record):
 
 def get_brother_printers():
     doc = win32com.client.Dispatch("bpac.Document")
-    installed = doc.Printer.GetInstalledPrinters  # no ()
+    installed = doc.Printer.GetInstalledPrinters or []  # no ()
     return [p for p in installed if doc.Printer.IsPrinterSupported(p)]
 
 
@@ -84,16 +109,20 @@ def print_label(record, printer_name):
         doc.GetObject("QR Code").Text = record["device_serial_number"]
 
         if not doc.SetPrinter(printer_name, False):
-            raise RuntimeError(f"Failed to set label printer to '{printer_name}' (b-PAC error {doc.ErrorCode})")
+            raise RuntimeError(
+                f"Failed to set label printer to '{printer_name}' (b-PAC error {doc.ErrorCode})")
 
         if not doc.StartPrint("", 0):
-            raise RuntimeError(f"Failed to start printing label (b-PAC error {doc.ErrorCode})")
+            raise RuntimeError(
+                f"Failed to start printing label (b-PAC error {doc.ErrorCode})")
 
         if not doc.PrintOut(1, 0):
-            raise RuntimeError(f"Failed to print label (b-PAC error {doc.ErrorCode})")
+            raise RuntimeError(
+                f"Failed to print label (b-PAC error {doc.ErrorCode})")
 
-        if not doc.EndPrint: #no ()
-            raise RuntimeError(f"Failed to end printing label (b-PAC error {doc.ErrorCode})")
+        if not doc.EndPrint:  # no ()
+            raise RuntimeError(
+                f"Failed to end printing label (b-PAC error {doc.ErrorCode})")
 
     finally:
         doc.Close  # no ()
@@ -253,9 +282,17 @@ combo_device.grid(column=2, row=6, sticky=(W, E))
 
 ttk.Label(mainframe, text="Device Model:").grid(column=1, row=6, sticky=W)
 
-# Section for Selecting Brother Printer
-printer_list = get_brother_printers()
+# Populating the printer list
+try:
+    printer_list = get_brother_printers()
+except pywintypes.com_error:
+    messagebox.showwarning(
+        "Label Printer Warning",
+        "The Brother b-PAC SDK could not be loaded, so labels can't be printed.\n\n"
+        "Install the 64-bit b-PAC SDK, then restart the tool.")
+    printer_list = []
 
+# Section for Selecting Brother Printer
 combo_printer = ttk.Combobox(mainframe, values=printer_list, state="readonly")
 if printer_list:
     combo_printer.set(printer_list[0])
@@ -273,7 +310,10 @@ regular_printer_list = get_form_printers(printer_list)
 combo_regular_printer = ttk.Combobox(
     mainframe, values=regular_printer_list, state="readonly")
 
-default_printer = win32print.GetDefaultPrinter()
+try:
+    default_printer = win32print.GetDefaultPrinter()
+except pywintypes.error:
+    default_printer = None
 
 if default_printer in regular_printer_list:
     combo_regular_printer.set(default_printer)
