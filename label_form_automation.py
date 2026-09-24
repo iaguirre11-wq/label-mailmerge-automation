@@ -211,7 +211,11 @@ def submit_info():
         messagebox.showerror("Form Error", str(e))
         return
 
-    write_to_excel(record)
+    try:
+        write_to_excel(record)
+    except Exception as e:
+        messagebox.showerror("Excel Error", str(e))
+        return
 
 
 def record_problems(record):
