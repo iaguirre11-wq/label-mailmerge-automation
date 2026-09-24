@@ -6,6 +6,7 @@ import tomllib
 from pathlib import Path
 from tkinter import *
 from tkinter import ttk
+from tkinter import messagebox
 
 # b-PAC is used with late binding (win32com.client.Dispatch).
 # gencache.EnsureDispatch does NOT work with b-PAC (makepy error), so:
@@ -25,12 +26,17 @@ config_path = base_dir / "config.toml"
 with open(config_path, "rb") as f:
     config = tomllib.load(f)
 
-# temp hardcoded values
+# Configuration paths and settings loaded from config.toml
 excel_database = config["paths"]["excel_database"]
 label_template = config["paths"]["label_template"]
 form_template = config["paths"]["form_template"]
 school_codes = config["schools"]
 device_models = config["devices"]["models"]
+
+# Placeholders for combobox selection
+no_printer_placeholder = "No Printers Available"
+school_code_placeholder = "Select a school"
+device_model_placeholder = "Select a device model"
 
 
 def write_to_excel(record):
@@ -77,11 +83,17 @@ def print_label(record, printer_name):
         doc.GetObject("Bar Code").Text = record["device_serial_number"]
         doc.GetObject("QR Code").Text = record["device_serial_number"]
 
-        doc.SetPrinter(printer_name, False)
+        if not doc.SetPrinter(printer_name, False):
+            raise RuntimeError(f"Failed to set label printer to '{printer_name}' (b-PAC error {doc.ErrorCode})")
 
-        doc.StartPrint("", 0)
-        doc.PrintOut(1, 0)
-        doc.EndPrint  # no ()
+        if not doc.StartPrint("", 0):
+            raise RuntimeError(f"Failed to start printing label (b-PAC error {doc.ErrorCode})")
+
+        if not doc.PrintOut(1, 0):
+            raise RuntimeError(f"Failed to print label (b-PAC error {doc.ErrorCode})")
+
+        if not doc.EndPrint: #no ()
+            raise RuntimeError(f"Failed to end printing label (b-PAC error {doc.ErrorCode})")
 
     finally:
         doc.Close  # no ()
@@ -142,10 +154,48 @@ def submit_info():
         "selected_model": combo_device.get()
     }
 
+    problems = record_problems(record)
+
+    if problems:
+        messagebox.showwarning("Can't Submit Info!", "\n".join(problems))
+        return
+
+    if combo_printer.get() == no_printer_placeholder:
+        messagebox.showwarning(
+            "Printer Warning", "No Brother label printers found. Check that the printer is installed and b-PAC is set up, then restart the tool.")
+        return
+
+    if combo_regular_printer.get() == no_printer_placeholder:
+        messagebox.showwarning(
+            "Printer Warning", "No form/regular printers available.")
+        return
+
+    try:
+        print_label(record, combo_printer.get())
+    except Exception as e:
+        messagebox.showerror("Label Error", str(e))
+        return
+
+    try:
+        print_form(record, combo_regular_printer.get())
+    except Exception as e:
+        messagebox.showerror("Form Error", str(e))
+        return
+
     write_to_excel(record)
 
-    # print_label(record, combo_printer.get())
-    print_form(record, combo_regular_printer.get())
+
+def record_problems(record):
+
+    warning_list = []
+
+    if record["selected_school"] not in school_codes:
+        warning_list.append("Please select a school.")
+
+    if record["selected_model"] not in device_models:
+        warning_list.append("Please select a device model.")
+
+    return warning_list
 
 
 # --------User GUI--------------------
@@ -189,7 +239,7 @@ ttk.Label(mainframe, text="Grade:").grid(column=1, row=4, sticky=W)
 school_list = list(school_codes)
 
 combo_school = ttk.Combobox(mainframe, values=school_list, state="readonly")
-combo_school.set("Select School")
+combo_school.set(school_code_placeholder)
 combo_school.grid(column=2, row=5, sticky=(W, E))
 
 ttk.Label(mainframe, text="School:").grid(column=1, row=5, sticky=W)
@@ -198,7 +248,7 @@ ttk.Label(mainframe, text="School:").grid(column=1, row=5, sticky=W)
 model_list = list(device_models)
 
 combo_device = ttk.Combobox(mainframe, values=model_list, state="readonly")
-combo_device.set("Select Model")
+combo_device.set(device_model_placeholder)
 combo_device.grid(column=2, row=6, sticky=(W, E))
 
 ttk.Label(mainframe, text="Device Model:").grid(column=1, row=6, sticky=W)
@@ -211,7 +261,7 @@ if printer_list:
     combo_printer.set(printer_list[0])
 
 else:
-    combo_printer.set("No Printers Available")
+    combo_printer.set(no_printer_placeholder)
 
 combo_printer.grid(column=2, row=7, sticky=(W, E))
 
@@ -230,7 +280,7 @@ if default_printer in regular_printer_list:
 elif regular_printer_list:
     combo_regular_printer.set(regular_printer_list[0])
 else:
-    combo_regular_printer.set("No Printers Available")
+    combo_regular_printer.set(no_printer_placeholder)
 
 combo_regular_printer.grid(column=2, row=8, sticky=(W, E))
 ttk.Label(mainframe, text="Form Printer:").grid(column=1, row=8, sticky=W)
