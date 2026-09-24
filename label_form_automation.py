@@ -280,7 +280,8 @@ ttk.Label(mainframe, text="School:").grid(column=1, row=5, sticky=W)
 # Section for Device Model
 model_list = list(device_models)
 
-combo_device = ttk.Combobox(mainframe, values=model_list, state="readonly")
+combo_device = ttk.Combobox(
+    mainframe, width=30, values=model_list, state="readonly")
 combo_device.set(device_model_placeholder)
 combo_device.grid(column=2, row=6, sticky=(W, E))
 
@@ -329,9 +330,22 @@ else:
 combo_regular_printer.grid(column=2, row=8, sticky=(W, E))
 ttk.Label(mainframe, text="Form Printer:").grid(column=1, row=8, sticky=W)
 
+# Section for selecting print options
+do_label = BooleanVar(value=True)
+ttk.Checkbutton(mainframe, text="Print Labels",
+                variable=do_label).grid(column=3, row=6, sticky=W)
+
+do_form = BooleanVar(value=True)
+ttk.Checkbutton(mainframe, text="Print Forms",
+                variable=do_form).grid(column=3, row=7, sticky=W)
+
+do_database = BooleanVar(value=True)
+ttk.Checkbutton(mainframe, text="Print Database",
+                variable=do_database).grid(column=3, row=8, sticky=W)
+
 # Section for Submit Button
 submit_button = ttk.Button(mainframe, text="Submit", command=submit_info)
-submit_button.grid(column=2, row=9, sticky=W)
+submit_button.grid(column=2, row=10, sticky=W)
 
 root.mainloop()
 # -------------------------------------------------------------------------
