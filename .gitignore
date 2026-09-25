@@ -1,2 +1,4 @@
 config.toml
 test.py
+dist/
+build/
