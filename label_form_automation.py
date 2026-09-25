@@ -189,33 +189,48 @@ def submit_info():
         messagebox.showwarning("Can't Submit Info!", "\n".join(problems))
         return
 
-    if combo_printer.get() == no_printer_placeholder:
+    if not do_label.get() and not do_form.get() and not do_database.get():
         messagebox.showwarning(
-            "Printer Warning", "No Brother label printers found. Check that the printer is installed and b-PAC is set up, then restart the tool.")
+            "No Actions Selected", "Please select at least one action to perform.")
         return
 
-    if combo_regular_printer.get() == no_printer_placeholder:
-        messagebox.showwarning(
-            "Printer Warning", "No form/regular printers available.")
-        return
+    if do_label.get():
+        if combo_printer.get() == no_printer_placeholder:
+            messagebox.showwarning(
+                "Printer Warning", "No Brother label printers found. Check that the printer is installed and b-PAC is set up, then restart the tool.")
+            return
 
-    try:
-        print_label(record, combo_printer.get())
-    except Exception as e:
-        messagebox.showerror("Label Error", str(e))
-        return
+    if do_form.get():
+        if combo_regular_printer.get() == no_printer_placeholder:
+            messagebox.showwarning(
+                "Printer Warning", "No form/regular printers available.")
+            return
 
-    try:
-        print_form(record, combo_regular_printer.get())
-    except Exception as e:
-        messagebox.showerror("Form Error", str(e))
-        return
+    if do_label.get():
+        try:
+            print_label(record, combo_printer.get())
+        except Exception as e:
+            messagebox.showerror("Label Error", str(e))
+            return
 
-    try:
-        write_to_excel(record)
-    except Exception as e:
-        messagebox.showerror("Excel Error", str(e))
-        return
+    if do_form.get():
+        try:
+            print_form(record, combo_regular_printer.get())
+        except Exception as e:
+            messagebox.showerror("Form Error", str(e))
+            return
+
+    if do_database.get():
+        try:
+            write_to_excel(record)
+        except Exception as e:
+            messagebox.showerror(
+                "Excel Error", f"The spreadsheet is open or locked. Close it, uncheck the other actions, and submit again to save just the row.\n" + str(e))
+            return
+
+    do_label.set(True)
+    do_form.set(True)
+    do_database.set(True)
 
 
 def record_problems(record):
@@ -340,7 +355,7 @@ ttk.Checkbutton(mainframe, text="Print Forms",
                 variable=do_form).grid(column=3, row=7, sticky=W)
 
 do_database = BooleanVar(value=True)
-ttk.Checkbutton(mainframe, text="Print Database",
+ttk.Checkbutton(mainframe, text="Save to Database",
                 variable=do_database).grid(column=3, row=8, sticky=W)
 
 # Section for Submit Button
