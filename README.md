@@ -83,7 +83,7 @@ Other objects (static captions, logos) are left untouched. The printer is chosen
 ### Form template (`.docx`)
 
 - Must be a **Normal Word Document**, not a mail-merge document with an attached data source.
-- Uses MERGEFIELDs named `User`, `Grade`, `Device`, `Serial`, and `SchoolCode` (anywhere in the document, including headers and footers).
+- Uses MERGEFIELDs named `User`, `Grade`, `Device`, `Serial`, `SchoolCode`, `Email`, and `TempPassword` (anywhere in the document, including headers and footers).
 - `SchoolCode` is filled with the school's code from the `[schools]` section of the config.
 - The template is opened **read-only** and is never saved or changed.
 
