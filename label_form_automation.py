@@ -136,6 +136,8 @@ def print_form(record, printer_name):
         "Device": record["selected_model"],
         "Serial": record["device_serial_number"],
         "SchoolCode": school_codes.get(record["selected_school"], ""),
+        "Email": record["email"],
+        "TempPassword": record["temp_password"],
     }
 
     word = None
@@ -180,7 +182,9 @@ def submit_info():
         "year_of_graduation": YOG.get(),
         "student_grade": grade.get(),
         "selected_school": combo_school.get(),
-        "selected_model": combo_device.get()
+        "selected_model": combo_device.get(),
+        "email": email_entry.get(),
+        "temp_password": temp_password_entry.get()
     }
 
     problems = record_problems(record)
@@ -358,9 +362,28 @@ do_database = BooleanVar(value=True)
 ttk.Checkbutton(mainframe, text="Save to Database",
                 variable=do_database).grid(column=3, row=8, sticky=W)
 
+# Section for Spacer text for optional entries.
+ttk.Label(mainframe, text="Optional Email and Temp Password").grid(
+    column=1, row=9, sticky=W, pady=10)
+
+# Section for optional email and  temp password entries
+email = StringVar()
+email_entry = ttk.Entry(mainframe, width=20, textvariable=email)
+email_entry.grid(column=2, row=10, sticky=(W, E))
+
+ttk.Label(mainframe, text="Email:").grid(column=1, row=10, sticky=W)
+
+temp_password = StringVar()
+temp_password_entry = ttk.Entry(
+    mainframe, width=20, textvariable=temp_password)
+temp_password_entry.grid(column=2, row=11, sticky=(W, E))
+
+ttk.Label(mainframe, text="Temp Password:").grid(column=1, row=11, sticky=W)
+
 # Section for Submit Button
 submit_button = ttk.Button(mainframe, text="Submit", command=submit_info)
-submit_button.grid(column=2, row=10, sticky=W)
+submit_button.grid(column=2, row=13, sticky=W)
+
 
 root.mainloop()
 # -------------------------------------------------------------------------
