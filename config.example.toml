@@ -1,6 +1,7 @@
 [paths]
 excel_database = 'C:\path\to\database'
-label_template = 'C:\path\to\brother label template'
+student_label_template = 'C:\path\to\brother label template'
+teacher_label_template = 'C:\path\to\brother label template'
 form_template  = 'C:\path\to\device form template'
 
 [schools]

@@ -39,7 +39,8 @@ try:
         config = tomllib.load(f)
     # Configuration paths and settings loaded from config.toml
     excel_database = config["paths"]["excel_database"]
-    label_template = config["paths"]["label_template"]
+    student_label_template = config["paths"]["student_label_template"]
+    teacher_label_template = config["paths"]["teacher_label_template"]
     form_template = config["paths"]["form_template"]
     school_codes = config["schools"]
     device_models = config["devices"]["models"]
@@ -94,19 +95,31 @@ def get_form_printers(brother_printers):
     return [p for p in all_printers if p not in brother]
 
 
+def set_label_text(doc, object_name, value):
+    obj = doc.GetObject(object_name)
+    if obj is None:
+        return
+    obj.Text = value
+
+
 def print_label(record, printer_name):
     doc = win32com.client.Dispatch("bpac.Document")
+
+    if record["user_type"] == "student":
+        label_template = student_label_template
+    elif record["user_type"] == "teacher":
+        label_template = teacher_label_template
 
     if not doc.Open(label_template):
         raise RuntimeError(f"Could not open label template: {label_template}")
 
     try:
 
-        doc.GetObject("Name").Text = record["student_name"]
-        doc.GetObject("School").Text = record["selected_school"]
-        doc.GetObject("YOG").Text = record["year_of_graduation"]
-        doc.GetObject("Bar Code").Text = record["device_serial_number"]
-        doc.GetObject("QR Code").Text = record["device_serial_number"]
+        set_label_text(doc, "Name", record["student_name"])
+        set_label_text(doc, "School", record["selected_school"])
+        set_label_text(doc, "YOG", record["year_of_graduation"])
+        set_label_text(doc, "Bar Code", record["device_serial_number"])
+        set_label_text(doc, "QR Code", record["device_serial_number"])
 
         if not doc.SetPrinter(printer_name, False):
             raise RuntimeError(
@@ -184,7 +197,8 @@ def submit_info():
         "selected_school": combo_school.get(),
         "selected_model": combo_device.get(),
         "email": email_entry.get(),
-        "temp_password": temp_password_entry.get()
+        "temp_password": temp_password_entry.get(),
+        "user_type": user_type.get()
     }
 
     problems = record_problems(record)
@@ -257,6 +271,13 @@ root.title("Student Information Form")
 mainframe = ttk.Frame(root, padding=(3, 3, 12, 12))
 mainframe.grid(column=0, row=0, sticky=(N, W, E, S))
 
+# Radio Button for Selecting Student or teacher
+user_type = StringVar(value="student")
+ttk.Radiobutton(mainframe, text="Student", value="student",
+                variable=user_type).grid(column=3, row=1, sticky=W)
+ttk.Radiobutton(mainframe, text="Teacher", value="teacher",
+                variable=user_type).grid(column=3, row=2, sticky=W)
+
 # Section for New Device Serial Number:
 serial_number = StringVar()
 serial_entry = ttk.Entry(mainframe, width=20, textvariable=serial_number)
@@ -265,12 +286,12 @@ serial_entry.grid(column=2, row=1, sticky=(W, E))
 ttk.Label(mainframe, text="Device Serial Number:").grid(
     column=1, row=1, sticky=W)
 
-# Section for entering student name:
+# Section for entering name:
 name = StringVar()
 name_entry = ttk.Entry(mainframe, width=20, textvariable=name)
 name_entry.grid(column=2, row=2, sticky=(W, E))
 
-ttk.Label(mainframe, text="Student Name:").grid(column=1, row=2, sticky=W)
+ttk.Label(mainframe, text="Name:").grid(column=1, row=2, sticky=W)
 
 # Section for entering year of graduation:
 YOG = StringVar()
