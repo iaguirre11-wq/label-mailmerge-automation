@@ -4,10 +4,12 @@ import win32print
 import sys
 import tomllib
 import pywintypes
+import json
 from pathlib import Path
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
+from tkinter import filedialog
 
 # b-PAC is used with late binding (win32com.client.Dispatch).
 # gencache.EnsureDispatch does NOT work with b-PAC (makepy error), so:
@@ -27,21 +29,122 @@ def fatal_startup_error(title, message):
     sys.exit(1)
 
 
+def missing_paths(paths):
+    return [key for key, p in paths.items() if not Path(p).is_file()]
+
+
+def browse_into(var, filetypes):
+    chosen = filedialog.askopenfilename(filetypes=filetypes)
+    if chosen:            # "" means the user cancelled the file picker
+        var.set(chosen)
+
+
+def open_paths_dialog():
+
+    dialog = Toplevel(root)
+    dialog.title("Set File Paths")
+    dialog.transient(root)
+    dialog.grab_set()
+
+    frame = ttk.Frame(dialog, padding=12)
+    frame.grid(column=0, row=0, sticky=(N, W, E, S))
+
+    vars_by_key = {}
+
+    for row, (key, label_text, extension, filetypes) in enumerate(path_fields, start=1):
+        var = StringVar(value=paths[key])
+        vars_by_key[key] = var
+
+        ttk.Label(frame, text=label_text +
+                  ":").grid(column=1, row=row, sticky=W)
+        ttk.Entry(frame, width=50, textvariable=var).grid(
+            column=2, row=row, sticky=(W, E))
+        ttk.Button(frame, text="Browse…",
+                   command=lambda v=var, ft=filetypes: browse_into(v, ft)
+                   ).grid(column=3, row=row, padx=(5, 0))
+
+    def save():
+        problems = []
+        cleaned = {}
+
+        for key, label_text, extension, filetypes in path_fields:
+            p = vars_by_key[key].get().strip().strip('"')
+
+            if not Path(p).is_file() or Path(p).suffix.lower() != extension:
+                problems.append(
+                    f"{label_text}: file not found or not a {extension} file")
+            else:
+                cleaned[key] = str(Path(p))
+
+        if problems:
+            messagebox.showwarning(
+                "Check Paths", "\n".join(problems), parent=dialog)
+            return
+
+        paths.update(cleaned)
+
+        try:
+            save_state(paths)
+        except OSError as e:
+            messagebox.showerror(
+                "Couldn't Save Paths",
+                "The new paths will be used until you close the tool, "
+                f"but they couldn't be saved:\n{e}",
+                parent=dialog)
+
+        dialog.destroy()
+
+    ttk.Button(frame, text="Save", command=save).grid(
+        column=2, row=5, sticky=E, pady=(10, 0))
+    ttk.Button(frame, text="Cancel", command=dialog.destroy).grid(
+        column=3, row=5, pady=(10, 0))
+
+
+path_fields = [
+    # key, label text, file extension, file dialog filter
+    ("excel_database", "Excel Database", ".xlsx", [("Excel Files", "*.xlsx")]),
+    ("student_label_template", "Student Label Template",
+     ".lbx", [("Label Files", "*.lbx")]),
+    ("teacher_label_template", "Teacher Label Template",
+     ".lbx", [("Label Files", "*.lbx")]),
+    ("form_template", "Form Template", ".docx", [("Document Files", "*.docx")])
+]
+
 if getattr(sys, "frozen", False):
     base_dir = Path(sys.executable).parent
 else:
     base_dir = Path(__file__).parent
 
 config_path = base_dir / "config.toml"
+state_path = base_dir / "state.json"
+
+
+def load_state():
+    if not state_path.exists():
+        return {}
+    try:
+        with open(state_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_state(paths):
+    with open(state_path, "w", encoding="utf-8") as f:
+        json.dump(paths, f, indent=2)
+
 
 try:
     with open(config_path, "rb") as f:
         config = tomllib.load(f)
     # Configuration paths and settings loaded from config.toml
-    excel_database = config["paths"]["excel_database"]
-    student_label_template = config["paths"]["student_label_template"]
-    teacher_label_template = config["paths"]["teacher_label_template"]
-    form_template = config["paths"]["form_template"]
+    config_paths = config.get("paths", {})
+    paths = {
+        "excel_database": config_paths.get("excel_database", ""),
+        "student_label_template": config_paths.get("student_label_template", ""),
+        "teacher_label_template": config_paths.get("teacher_label_template", ""),
+        "form_template": config_paths.get("form_template", "")
+    }
     school_codes = config["schools"]
     device_models = config["devices"]["models"]
 except FileNotFoundError:
@@ -59,6 +162,12 @@ except KeyError as e:
                         f"config.toml is missing a setting: {e}\n\n"
                         "Compare it against config.example.toml.")
 
+# Saved picks from the Set Paths dialog override config.toml
+state = load_state()
+for key in paths:
+    if key in state:
+        paths[key] = state[key]
+
 # Placeholders for combobox selection
 no_printer_placeholder = "No Printers Available"
 school_code_placeholder = "Select a school"
@@ -66,7 +175,7 @@ device_model_placeholder = "Select a device model"
 
 
 def write_to_excel(record):
-    workbook = openpyxl.load_workbook(excel_database)
+    workbook = openpyxl.load_workbook(paths["excel_database"])
     worksheet = workbook.active
 
 # Append a new row to the Excel worksheet with the record data in the same order as listed below starting from column A
@@ -79,7 +188,7 @@ def write_to_excel(record):
         record["selected_model"]
     ])
 
-    workbook.save(excel_database)
+    workbook.save(paths["excel_database"])
 
 
 def get_brother_printers():
@@ -106,9 +215,9 @@ def print_label(record, printer_name):
     doc = win32com.client.Dispatch("bpac.Document")
 
     if record["user_type"] == "student":
-        label_template = student_label_template
-    elif record["user_type"] == "teacher":
-        label_template = teacher_label_template
+        label_template = paths["student_label_template"]
+    else:
+        label_template = paths["teacher_label_template"]
 
     if not doc.Open(label_template):
         raise RuntimeError(f"Could not open label template: {label_template}")
@@ -164,7 +273,7 @@ def print_form(record, printer_name):
 
         original_printer = word.ActivePrinter
         word.ActivePrinter = printer_name
-        doc = word.Documents.Open(form_template, ReadOnly=True)
+        doc = word.Documents.Open(paths["form_template"], ReadOnly=True)
 
         for story in doc.StoryRanges:
             while story is not None:
@@ -405,6 +514,14 @@ ttk.Label(mainframe, text="Temp Password:").grid(column=1, row=11, sticky=W)
 submit_button = ttk.Button(mainframe, text="Submit", command=submit_info)
 submit_button.grid(column=2, row=13, sticky=W)
 
+# section for path selection button
+path_button = ttk.Button(mainframe, text="Set Paths..",
+                         command=open_paths_dialog)
+path_button.grid(column=3, row=13, sticky=W)
+
+# Open the Set Paths dialog if any file is missing
+if missing_paths(paths):
+    root.after(100, open_paths_dialog)
 
 root.mainloop()
 # -------------------------------------------------------------------------
